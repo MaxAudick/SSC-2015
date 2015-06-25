@@ -1,6 +1,6 @@
 ## Max's 2015 Summer Internship
 
-###Random Walkers - 6/25
+###Random Walkers - 06/25/2015
 
 Made program to create random walkers along diagonal axes, using numpy for random generation and array organization and matplotlib for plotting the data.  Also made similar program that created random walkers along vertical axes.  Can run in 2 or 3 dimensions, depending on how file is edited.
 
