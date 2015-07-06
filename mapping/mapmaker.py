@@ -16,6 +16,16 @@ class MyMap:
         self.constraints = {}
 
     def change_database(self, database, host='localhost', user='root', passwd='cats'):
+        """
+
+        :param database:
+        :param host:
+        :param user:
+        :param passwd:
+        :return:
+
+
+        """
         self.database = database
         self.host = host
         self.user = user
@@ -162,7 +172,7 @@ def retrieve_table(table_name, database='test', host='localhost', user='root', p
                     exec_str += constraint.get_sql_constraint
                     val2 = False
                 else:
-                    exec_str += " OR "
+                    exec_str += " OR " + constraint.get_sql_constraint
         else:
             exec_str += "("
             val2 = True
@@ -173,7 +183,6 @@ def retrieve_table(table_name, database='test', host='localhost', user='root', p
                 else:
                     exec_str += str(constraint_type) + "=" + str(constraint) + " OR "
             exec_str += ")"
-        exec_str += "X"
 
 
 def update_database(data_lst, table_name, unique_lst=[], database='test', host='localhost', user='root', passwd='cats'):
