@@ -11,5 +11,5 @@ Made program to create random walkers along diagonal axes, using numpy for rando
 
 Made program that reads data from a csv file and plots on a Leaflet map using MarkerCluster.  Modified to give each ship a different color using MakiMarkers, and to input and retrieve data from a MySQL database using MySQLdb.
 
-![zoomed out map to display markerclusters](/mapping/ZoomedOut.xcf)
-![zoomed in map to display ship color differentiation](/mapping/ZoomedIn.xcf)
+![zoomed out map to display markerclusters](/mapping/ZoomedOut.png)
+![zoomed in map to display ship color differentiation](/mapping/ZoomedIn.png)
