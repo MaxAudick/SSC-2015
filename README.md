@@ -13,3 +13,8 @@ Made program that reads data from a csv file and plots on a Leaflet map using Ma
 
 ![zoomed out map to display markerclusters](/mapping/ZoomedOut.png)
 ![zoomed in map to display ship color differentiation](/mapping/ZoomedIn.png)
+
+####07/06/2015
+Added constraints system, which supports functions such as limiting the ships displayed based on name, timestamp (as a range), or latitude and longitude (also as ranges).  Also, experimented with doctests, but removed them due to the fact that there was too large a variety of returns on each function or method.
+
+![map with data limited by two time ranges and two ship names](/mapping/Constrained.png)

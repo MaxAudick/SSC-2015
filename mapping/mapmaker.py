@@ -9,47 +9,64 @@ from datetime import datetime as dt
 
 class MyMap:
     def __init__(self, database='test', host='localhost', user='root', passwd='cats'):
-        self.database = database
-        self.host = host
-        self.user = user
-        self.passwd = passwd
         self.constraints = {}
+        self.db = mdb.connect(host, user, passwd, database)
 
-    def change_database(self, database, host='localhost', user='root', passwd='cats'):
-        """
-
-        :param database:
-        :param host:
-        :param user:
-        :param passwd:
-        :return:
-
-
-        """
-        self.database = database
-        self.host = host
-        self.user = user
-        self.passwd = passwd
+    def open_database(self, database, host='localhost', user='root', passwd='cats'):
+        self.db = mdb.connect(host, user, passwd, database)
 
     def update_points(self, table_name, source_path, source_name, unique_vals=[]):
         data_lst = csv_to_lst(source_path, source_name)
-        update_database(data_lst, table_name, unique_vals, self.database, self.host, self.user, self.passwd)
+        update_database(data_lst, table_name, self.db, unique_vals)
 
     def update_map(self, table_name, write_path, write_name):
         if len(self.constraints) == 0:
-            data_lst = retrieve_entire_table(table_name, self.database, self.host, self.user, self.passwd)
+            data_lst = retrieve_entire_table(table_name, self.db)
         else:
-            data_lst = retrieve_table(table_name, self.database, self.host, self.user, self.passwd, self.constraints)
+            data_lst = retrieve_table(table_name, self.db, self.constraints)
         write_jsvar(data_lst, write_path, write_name)
 
     def add_constraint(self, constraint_type, constraint):
-        if constraint_type in get_constraint_types(self.database, self.host, self.user, self.passwd):
+        if constraint_type in get_constraint_types('AISData', self.db):
             if constraint_type != 'lat' and constraint_type != 'lon':
-                self.constraints[constraint_type] = constraint
+                try:
+                    len(self.constraints[constraint_type])
+                    self.constraints[constraint_type].append(constraint)
+                except KeyError:
+                    self.constraints[constraint_type] = [constraint]
         elif constraint_type == 'latlon':
-            self.constraints[constraint_type] = constraint
+            try:
+                len(self.constraints[constraint_type])
+                self.constraints[constraint_type].append(constraint)
+            except KeyError:
+                self.constraints[constraint_type] = [constraint]
         elif constraint_type == 'time_range':
-            self.constraints[constraint_type] = constraint
+            try:
+                len(self.constraints[constraint_type])
+                self.constraints[constraint_type].append(constraint)
+            except KeyError:
+                self.constraints[constraint_type] = [constraint]
+
+    def close_database(self):
+        self.db.close()
+
+
+
+class TimeRangeConstraint:
+    def __init__(self, starttime, endtime):
+        self.start = starttime
+        self.end = endtime
+
+    def get_sql_constraint(self):
+        sql_str = "("
+        if self.start is not None:
+            sql_str += "unixtime>=" + str(self.start)
+            if self.end is not None:
+                sql_str += " AND "
+        if self.end is not None:
+            sql_str += "unixtime<=" + str(self.end)
+        sql_str += ")"
+        return sql_str
 
 
 class LatLonConstraint:
@@ -86,6 +103,9 @@ class LatLonConstraint:
 
 
 def csv_to_lst(path, filename):
+    """
+    Returns a list version of a .csv file, given that file's path and name.
+    """
     lst_data = []
     name_data = {}
     with open(os.path.join(path, filename), 'r') as csv_data:
@@ -104,11 +124,14 @@ def csv_to_lst(path, filename):
 
 
 def lst_to_jsvar(data_lst):
+    """
+    Returns a string that can be read as a javascript variable based on data in a list.  Tuned specifically for ships.
+    """
     data_str = 'var dataPoints = ['
     try:
         for line in data_lst:
             data_str += '[{lon}, {lat}, "<p><b>Time:</b> {t}</p><p><b>Course:</b> {crs}</p><p><b>Speed:</b> {spd}</p><p><b>MMSI:</b> {mmsi}</p><p><b>Name:</b> <i>{name}</i></p>", "{color}"], '.format(lat=line[2], lon=line[3], t=str(dt.fromtimestamp(int(line[1]))), crs=line[4], spd=line[5], mmsi=line[6], name=line[7], color=line[8])
-    except TypeError, e:
+    except TypeError:
         line = data_lst
         data_str += '[{lon}, {lat}, "<p><b>Time:</b> {t}</p><p><b>Course:</b> {crs}</p><p><b>Speed:</b> {spd}</p><p><b>MMSI:</b> {mmsi}</p><p><b>Name:</b> <i>{name}</i></p>", "{color}"], '.format(lat=line[2], lon=line[3], t=line[1], crs=line[4], spd=line[5], mmsi=line[6], name=line[7], color=line[8])
     data_str = data_str[:len(data_str) - 2] + '];'
@@ -122,6 +145,9 @@ def write_jsvar(data_lst, write_path, write_filename):
 
 
 def random_color():
+    """
+    Generates and returns the string of a random color.  Color code is in hex values.
+    """
     color = "#"
     for i in range(3):
         color_val = np.random.randint(0, 16)
@@ -131,62 +157,63 @@ def random_color():
     return color
 
 
-def get_constraint_types(table_name, database='test', host='localhost', user='root', passwd='cats'):
-    db = mdb.connect(host, user, passwd, database)
+def get_constraint_types(table_name, db):
+    """
+    Returns a list of the column names from a table on a database.
+    """
     cursor = db.cursor()
-    cursor.execute("SHOW COLUMNS FROM {table}".format(table_name))
+    cursor.execute("SHOW COLUMNS FROM {table}".format(table=table_name))
     data_lst = cursor.fetchall()
     db.commit()
     cursor.close()
-    db.close()
-    return data_lst
+    data_lst_out = [val[0] for val in data_lst]
+    return data_lst_out
 
 
-def retrieve_entire_table(table_name, database='test', host='localhost', user='root', passwd='cats'):
-    db = mdb.connect(host, user, passwd, database)
+def retrieve_entire_table(table_name, db):
     cursor = db.cursor()
     cursor.execute("SELECT * FROM {table}".format(table=table_name))
     data_lst = cursor.fetchall()
     db.commit()
     cursor.close()
-    db.close()
     return data_lst
 
 
-def retrieve_table(table_name, database='test', host='localhost', user='root', passwd='cats', cols = [], constraints={}):
+def retrieve_table(table_name, db, constraints={}):
     exec_str = "SELECT "
     val1 = True
-    for constraint in cols:
-        if val1:
-            exec_str += str(constraint)
-            val1 = False
-        else:
-            exec_str += "," + str(constraint)
+    is_cols = True
+    try:
+        cols = constraints['cols']
+    except Exception:
+        is_cols = False
+    if is_cols:
+        for constraint in cols:
+            if val1:
+                exec_str += str(constraint)
+                val1 = False
+            else:
+                exec_str += "," + str(constraint)
+    else:
+        exec_str += "*"
     exec_str += " FROM {table} WHERE ".format(table=table_name)
     val1 = True
     for constraint_type in constraints.keys():
-        if constraint_type == 'latlon' or constraint_type == 'time_range':
-            val2 = True
-            for constraint in constraints[constraint_type]:
-                if val2:
-                    exec_str += constraint.get_sql_constraint
-                    val2 = False
-                else:
-                    exec_str += " OR " + constraint.get_sql_constraint
+        if val1:
+            val1 = False
+            exec_str = add_constraints_sql(exec_str, constraint_type, constraints)
         else:
-            exec_str += "("
-            val2 = True
-            for constraint in constraints[constraint_type]:
-                if val2:
-                    exec_str += str(constraint_type) + "=" + str(constraint)
-                    val2 = False
-                else:
-                    exec_str += str(constraint_type) + "=" + str(constraint) + " OR "
-            exec_str += ")"
+            exec_str += " AND "
+            exec_str = add_constraints_sql(exec_str, constraint_type, constraints)
+    cursor = db.cursor()
+    cursor.execute(exec_str)
+    data_lst = cursor.fetchall()
+    db.commit()
+    cursor.close()
+    return data_lst
 
 
-def update_database(data_lst, table_name, unique_lst=[], database='test', host='localhost', user='root', passwd='cats'):
-    db = mdb.connect(host, user, passwd, database)
+def update_database(data_lst, table_name, db, unique_lst=[]):
     cursor = db.cursor()
     val1 = True
     for line in data_lst:
@@ -197,10 +224,12 @@ def update_database(data_lst, table_name, unique_lst=[], database='test', host='
             insert_row(cursor, table_name, data_lst[0], line)
     db.commit()
     cursor.close()
-    db.close()
 
 
 def create_table(cursor, table_name, cols, first_data_lst, unique_lst):
+    """
+    Creates a table in a database if that table does not already exist.  Will not modify an already existing table.
+    """
     exec_str = "CREATE TABLE IF NOT EXISTS {name} (ID int NOT NULL AUTO_INCREMENT".format(name=table_name)
     for i in range(len(cols)):
         exec_str += ", {title} {type}".format(title=cols[i], type=get_sql_type(first_data_lst[i]))
@@ -240,23 +269,70 @@ def insert_row(cursor, table_name, type_lst, data_lst):
         exec_str += ")"
         cursor.execute(exec_str)
     except:
-        return 0
+        return None
+
+
+def add_constraints_sql(exec_str, constraint_type, constraints):
+    """
+    Return SQL version of a given constraint.
+    """
+    exec_str += "("
+    if constraint_type == 'latlon' or constraint_type == 'time_range':
+        val1 = True
+        for constraint in constraints[constraint_type]:
+            if val1:
+                next_constraint = constraint.get_sql_constraint()
+                exec_str += next_constraint
+                val1 = False
+            else:
+                next_constraint = constraint.get_sql_constraint()
+                exec_str += " OR " + next_constraint
+    else:
+        val1 = True
+        for constraint in constraints[constraint_type]:
+            if val1:
+                exec_str += str(constraint_type) + "='" + str(constraint) + "'"
+                val1 = False
+            else:
+                exec_str += " OR " + str(constraint_type) + "='" + str(constraint) + "'"
+    exec_str += ")"
+    return exec_str
 
 
 def get_sql_type(val):
+    """
+    Obtain a value's type, convert it to its SQL equivalent type, and return that SQL equivalent type.
+    """
     sql_type = str(type(val))
     sql_type = sql_type[7:len(sql_type) - 2]
     if sql_type == 'str':
         if val[0] == '#':
-            sql_type = 'char(4)'
+            if len(val) == 4:
+                sql_type = 'char(4)'
+            elif len(val) == 16:
+                sql_type = 'char(16)'
+            else:
+                return None
         else:
-            sql_type = 'varchar(255)'
+            if len(val) < 256:
+                sql_type = 'varchar(255)'
+            else:
+                sql_type = 'text'
     return sql_type.upper()
 
 
 def main():
-    map = MyMap('ais_db')
-    map.update_points('AISData', '/home/max/internship/mapping', 'aisdata.csv')
-    map.update_map('AISData', '/home/max/internship/mapping', 'aisjsvar.js')
+    mymap = MyMap('ais_db')
+    mymap.update_points('AISData', '/home/max/internship/mapping', 'aisdata.csv')
+    mymap.add_constraint('shipname', 'SLAVE I')
+    mymap.add_constraint('time_range', TimeRangeConstraint(None, 1403713500))
+    mymap.add_constraint('time_range', TimeRangeConstraint(1403714500, None))
+    mymap.add_constraint('shipname', 'MILLENIUM FALCON')
+    mymap.update_map('AISData', '/home/max/internship/mapping', 'aisjsvar.js')
+    mymap.close_database()
 
-main()
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
+    main()
