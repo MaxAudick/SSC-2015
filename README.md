@@ -22,3 +22,5 @@ Added constraints system, which supports functions such as limiting the ships di
 
 ###Linear Algebra - 07/09/2015
 I've been learning (very) basic linear algebra this week.  I made a python file with several linear algebra-related methods, such as a gauss-jordan solver.  The solver occassionally fails, possibly when finding infinite sets of solutions.  I made a different file that created a noisy graph, then could find the slope of its line of best fit.  It can also generate linear graphs (no exponential graphs) for this purpose.
+
+![graph - filtering out noise through least squares and moving average window](/LinearAlgebra/NoiseFilter.png)
