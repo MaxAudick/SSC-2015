@@ -3,13 +3,15 @@ __author__ = 'max'
 import numpy as np
 import matplotlib.pyplot as plt
 import VectorOperations as VecOps
+from collections import deque
+import time
 
 
 def make_noise(offset, expected):
     actual = np.zeros((len(expected), len(expected[0])))
     for r in range(len(actual)):
         for c in range(len(actual[0])):
-            actual[r][c] += ((np.random.ranf() * 2 - 1) * offset) + expected[r][c]
+            actual[r][c] += ((np.random.randn() * 2) * offset) + expected[r][c]
     return actual
 
 
@@ -97,6 +99,24 @@ def windowed_average(x, width):
     return averaged
 
 
+def windowed_average2(x, width):
+    half_width = width / 2 + 1
+    l = len(x) - half_width
+    averaged = np.empty((len(x), 1))
+    window = deque([x[i][1] for i in range(half_width)])
+    total = sum(window)
+    num = len(window)
+    for i in range(len(x)):
+        if i < l:
+            total += x[i + half_width][1]
+            num += 1
+        if half_width < i:
+            total -= x[i - half_width][1]
+            num -= 1
+        averaged[i][0] = total / num
+    return averaged
+
+
 def f(x, eq):
     y = [0 for i in x]
     for i in range(len(eq)):
@@ -111,20 +131,15 @@ def arr_to_lst(arr, col=0):
     return lst
 
 
-size = 1000
+size = 100000
 expected, step = parabola([2, 5, 3], size, 0 - (size / 2), size)
-actual = make_noise(size ** 2, expected)
+actual = make_noise(size ** 5, expected)
 eq = best_fit(get_axis(actual), 3, step)
-ave = windowed_average(actual, size / 4)
-print expected
-print
-print actual
-print
-print eq
+ave = windowed_average2(actual, size / 4)
 x = np.arange(size)
 plt.plot(x, f(x, eq), '-', label='least squares')
 plt.plot(x, tuple(arr_to_lst(expected, 1)), '-', linewidth=2.5, label='expected')
-plt.scatter(x, tuple(arr_to_lst(actual, 1)), marker='.', s=10, label='actual')
+plt.scatter(x, tuple(arr_to_lst(actual, 1)), marker='.', s=1, label='actual')
 plt.plot(x, tuple(ave), '-', label='moving average')
 plt.legend(loc=1)
 plt.show()
